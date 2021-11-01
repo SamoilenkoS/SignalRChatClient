@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.SignalR.Client;
+using ProductsCore.Models;
 using System;
 using System.Threading.Tasks;
 
@@ -6,10 +7,9 @@ namespace SignalRChatClient
 {
     class Program
     {
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
-            StartChatAsync().ConfigureAwait(false).GetAwaiter();
-            Console.ReadKey();
+            await StartChatAsync();
         }
 
         static async Task StartChatAsync()
@@ -18,12 +18,26 @@ namespace SignalRChatClient
                = new HubConnectionBuilder()
                .WithUrl("https://localhost:5001/chat")
                .Build();
+            ConsoleColor currentColor = ConsoleColor.Yellow;
 
-            connection.On<string, string>("ReceiveMessage",
-                (user, message) =>
+            connection.On<ChatMessage>("ReceiveMessage",
+                (chatMessage) =>
                 {
-                    var newMessage = $"{user}: {message}";
+                    var temp = currentColor;
+                    Console.ForegroundColor = chatMessage.MessageColor;
+
+                    var newMessage = $"{chatMessage.Sender}: {chatMessage.Text}";
                     Console.WriteLine(newMessage);
+
+                    Console.ForegroundColor = temp;
+                });
+
+            connection.On<ConsoleColor>("ColorChanged",
+                (newColor) =>
+                {
+                    currentColor = newColor;
+                    Console.ForegroundColor = currentColor;
+                    Console.WriteLine($"Color changed to {newColor}");
                 });
 
             await connection.StartAsync();
@@ -32,8 +46,7 @@ namespace SignalRChatClient
             do
             {
                 message = Console.ReadLine();
-                await connection.InvokeAsync("SendMessage",
-                      "ITEA", message);
+                await connection.InvokeAsync("SendMessage", message);
             } while (!string.IsNullOrEmpty(message));
         }
     }
